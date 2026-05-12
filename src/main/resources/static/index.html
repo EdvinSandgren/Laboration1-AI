@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple AI Chat App</title>
+    <style>
+        /* Basic Reset and Layout */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #chat-container {
+            width: 100%;
+            max-width: 450px;
+            height: 80vh;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            background: #0084ff;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* Message Display Area */
+        #messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            position: relative;
+        }
+
+        .received {
+            align-self: flex-start;
+            background-color: #e4e6eb;
+            color: #050505;
+            border-bottom-left-radius: 2px;
+        }
+
+        .sent {
+            align-self: flex-end;
+            background-color: #0084ff;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        /* Settings/Dropdown Area */
+        #settings-bar {
+            display: flex;
+            gap: 10px;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #ddd;
+            align-items: flex-end;
+        }
+
+        .dropdown-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dropdown-group label {
+            font-size: 0.7rem;
+            color: #65676b;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        select {
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 0.85rem;
+            outline: none;
+            background: white;
+        }
+
+        /* Clear Button Styling */
+        #clear-btn {
+            background-color: #fa3e3e;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            height: fit-content;
+            margin-bottom: 2px;
+        }
+
+        #clear-btn:hover {
+            background-color: #a30000;
+        }
+
+        /* Thinking Animation Styling */
+        .thinking span {
+            animation: blink 1.4s infinite both;
+            font-size: 1.4rem;
+            line-height: 0;
+        }
+
+        .thinking span:nth-child(2) { animation-delay: 0.2s; }
+        .thinking span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+            0% { opacity: 0.2; }
+            20% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+
+        /* Input Area */
+        #input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            background: #fff;
+            gap: 5px;
+        }
+
+        #message-input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+            padding: 10px 10px 10px 15px;
+        }
+
+        #send-btn {
+            flex: 0.15;
+            background-color: #0084ff;
+            border: none;
+            color: white;
+            border-radius: 20px;
+            padding: 10px 10px 10px 10px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #send-btn:hover {
+            background-color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <header>AI Chat</header>
+
+    <div id="messages"></div>
+
+    <div id="settings-bar">
+        <div class="dropdown-group">
+            <label for="personality-select">Personality</label>
+            <select id="personality-select">
+                <option value="helpful">Helpful Assistant</option>
+                <option value="professional">Professional</option>
+                <option value="creative">Creative/Witty</option>
+                <option value="concise">Concise</option>
+            </select>
+        </div>
+        <div class="dropdown-group">
+            <label for="memory-select">Memory</label>
+            <select id="memory-select">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+        </div>
+        <button id="clear-btn" type="button">Clear Chat</button>
+    </div>
+
+    <form id="input-area">
+        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+        <button type="submit" id="send-btn">Send</button>
+    </form>
+</div>
+
+<script>
+    const form = document.getElementById('input-area');
+    const input = document.getElementById('message-input');
+    const personalitySelect = document.getElementById('personality-select');
+    const memorySelect = document.getElementById('memory-select');
+    const messagesContainer = document.getElementById('messages');
+    const clearBtn = document.getElementById('clear-btn');
+    let thinkingElement = null;
+
+    function appendMessage(text, type) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', type);
+        messageDiv.textContent = text;
+        messagesContainer.appendChild(messageDiv);
+        scrollToBottom();
+        return messageDiv;
+    }
+
+    function showThinking() {
+        thinkingElement = document.createElement('div');
+        thinkingElement.classList.add('message', 'received', 'thinking');
+        thinkingElement.innerHTML = 'Thinking<span>.</span><span>.</span><span>.</span>';
+        messagesContainer.appendChild(thinkingElement);
+        scrollToBottom();
+    }
+
+    function removeThinking() {
+        if (thinkingElement) {
+            thinkingElement.remove();
+            thinkingElement = null;
+        }
+    }
+
+    function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Clear Chat Functionality
+    clearBtn.addEventListener('click', async () => {
+        if (confirm("Are you sure you want to clear the chat history?")) {
+            try {
+                const response = await fetch('http://localhost:8080/api/v1/chat', {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    // Clear the UI
+                    messagesContainer.innerHTML = '';
+                    console.log("Chat history cleared on server.");
+                } else {
+                    console.error("Failed to clear chat on server.");
+                    alert("Could not clear history on the server.");
+                }
+            } catch (error) {
+                console.error("Error during DELETE request:", error);
+                alert("Network error: Could not clear history.");
+            }
+        }
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const messageText = input.value.trim();
+        const selectedPersonality = personalitySelect.value;
+        const selectedMemory = memorySelect.value;
+
+        if (messageText !== "") {
+            appendMessage(messageText, 'sent');
+            input.value = '';
+            showThinking();
+
+            try {
+                const response = await fetch('http://localhost:8080/api/v1/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: messageText,
+                        personality: selectedPersonality,
+                        memory: parseInt(selectedMemory)
+                    })
+                });
+
+                const data = await response.text();
+                removeThinking();
+                appendMessage(data, 'received');
+
+            } catch (error) {
+                console.error("Error:", error);
+                removeThinking();
+                appendMessage("Sorry, I'm having trouble connecting to the server.", 'received');
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
